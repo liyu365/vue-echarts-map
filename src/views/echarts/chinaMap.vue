@@ -64,7 +64,7 @@ export default {
         //如果有上级目录则执行
         var map = mapStack.pop();
         axios
-          .get("./static/json/map/" + map.mapId + ".json", {})
+          .get("./static/region-city/" + map.mapId + ".json", {})
           .then(response => {
             const mapJson = response.data;
             registerAndsetOption(
@@ -86,19 +86,32 @@ export default {
      */
 
     mapChart(divid) {
-      axios.get("./static/json/map/" + chinaId + ".json", {}).then(response => {
+      axios.get("./static/region-city/" + chinaId + ".json", {}).then(response => {
         const mapJson = response.data;
         chinaJson = mapJson;
         myChart = echarts.init(document.getElementById(divid));
+        myChart.setOption({
+          visualMap: {
+            min: 100000,
+            max: 500000,
+            text: ['High', 'Low'],
+            realtime: false,
+            calculable: true,
+            inRange: {
+                color: ['lightskyblue', 'yellow', 'orangered']
+            }
+          }
+        });
         registerAndsetOption(myChart, chinaId, chinaName, mapJson, false);
         parentId = chinaId;
         parentName = "china";
         myChart.on("click", function(param) {
-          var cityId = cityMap[param.name];
+          console.log('param', param)
+          var cityId = param.data.id;
           if (cityId) {
             //代表有下级地图
             axios
-              .get("./static/json/map/" + cityId + ".json", {})
+              .get("./static/region-city/" + cityId + ".json", {})
               .then(response => {
                 const mapJson = response.data;
                 registerAndsetOption(
@@ -106,7 +119,8 @@ export default {
                   cityId,
                   param.name,
                   mapJson,
-                  true
+                  true,
+                  param.data.center
                 );
               });
           } else {
@@ -136,18 +150,22 @@ export default {
  * @param {*} mapJson   地图Json数据
  * @param {*} flag      是否往mapStack里添加parentId，parentName
  */
-function registerAndsetOption(myChart, id, name, mapJson, flag) {
+function registerAndsetOption(myChart, id, name, mapJson, flag, center) {
+  console.log(id, mapJson)
   echarts.registerMap(name, mapJson);
   myChart.setOption({
     series: [
       {
+        center,
+        roam: true,
+        zoom: 1,
         type: "map",
         map: name,
         itemStyle: {
           normal: {
             areaColor: "rgba(23, 27, 57,0)",
             borderColor: "#1dc199",
-            borderWidth: 1
+            borderWidth: 4
           }
         },
         data: initMapData(mapJson)
@@ -170,8 +188,10 @@ function initMapData(mapJson) {
   var mapData = [];
   for (var i = 0; i < mapJson.features.length; i++) {
     mapData.push({
-      name: mapJson.features[i].properties.name
-      //id:mapJson.features[i].id
+      name: mapJson.features[i].properties.name,
+      id: mapJson.features[i].properties.adcode,
+      value: mapJson.features[i].properties.adcode,
+      center: mapJson.features[i].properties.center
     });
   }
   return mapData;
